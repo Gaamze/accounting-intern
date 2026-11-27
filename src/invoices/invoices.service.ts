@@ -1,10 +1,8 @@
 import { Injectable, NotFoundException , ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
-import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { Repository } from 'typeorm';
 import { Invoice , InvoiceStatus} from './entities/invoice.entity';
-import { CreateAccountDto } from '../accounts/dto/create-account.dto';
 import { JournalEntriesService } from '../journal-entries/journal-entries.service';
 import { Account } from '../accounts/account.entity';
 
@@ -79,14 +77,14 @@ export class InvoicesService {
   }
 
   /** POSTED -> PAID: */
-  async pay(id: number,payentDate?:string) {
+  async pay(id: number,paymentDate?:string) {
     const invoice = await this.findOne(id);
 
     if (invoice.status !== InvoiceStatus.POSTED) {
       throw new ConflictException(`Invoice ${invoice.number} is ${invoice.status}, only POSTED can be paid`);
     }
 
-    const date= payentDate ?? new Date().toISOString().slice(0,10);
+    const date= paymentDate ?? new Date().toISOString().slice(0,10);
     if (invoice.issueDate && date<invoice.issueDate)
     {
       throw new BadRequestException('payment can bot be before issue date');

@@ -8,6 +8,7 @@ import { assertBalanced } from './journal-entry.rules';
 import { ListJournalEntriesQueryDto } from './dto/ListJournalEntriesQueryDto';
 import {Between,MoreThanOrEqual,LessThanOrEqual} from 'typeorm';
 import { ReverseJournalEntryDto } from './dto/reverse-journal-entry.dto';
+import { JournalEntryResponse, toResponse } from './journal-entry.view';
 
 
 @Injectable()
@@ -17,7 +18,7 @@ export class JournalEntriesService {
     @InjectRepository(Account) private readonly accounts: Repository<Account>,
   ) {}
 
-  async create(dto: CreateJournalEntryDto): Promise<JournalEntry> {
+  async create(dto: CreateJournalEntryDto): Promise<JournalEntryResponse> {
     assertBalanced(dto.lines);
 
     // Make sure every referenced account exists and is active.
@@ -49,7 +50,7 @@ export class JournalEntriesService {
 
 
   // task 2 
-  findAll(query: ListJournalEntriesQueryDto): Promise<JournalEntry[]> {
+  findAll(query: ListJournalEntriesQueryDto): Promise<JournalEntryResponse[]> {
 
     if (query.from && query.to && query.from > query.to) {
     throw new BadRequestException('From date cannot be after to date');
@@ -64,22 +65,21 @@ export class JournalEntriesService {
     date = LessThanOrEqual(query.to);
   }
 
-    return this.entries.find({ where: date ? { date: date } : {},order: { date: 'DESC', id: 'DESC' } });
+    return this.entries.find({ where: date ? { date: date } : {},order: { date: 'DESC', id: 'DESC' } }).then((entries) => entries.map(toResponse));
   }
 
-  async findOne(id: number): Promise<JournalEntry> {
+  async findOne(id: number): Promise<JournalEntryResponse> {
     const entry = await this.entries.findOne({ where: { id } });
     if (!entry) throw new NotFoundException(`Journal entry ${id} not found`);
-    return entry;
+    return toResponse(entry);
   }
 
 
 
   // task 4 
-  async reverse(id: number, dto: ReverseJournalEntryDto): Promise<JournalEntry> {
+  async reverse(id: number, dto: ReverseJournalEntryDto): Promise<JournalEntryResponse> {
   const original = await this.findOne(id);
 
-  // Decision: a reversal can't itself be reversed (see note below).
   if (original.reversedEntryId !== null) {
     throw new ConflictException(`Entry ${id} is a reversal and cannot be reversed`);
   }
@@ -96,8 +96,8 @@ export class JournalEntriesService {
     reversedEntryId: id,
     lines: original.lines.map((l) => ({
       account: { id: l.account.id },
-      debitCents: l.creditCents, // swapped
-      creditCents: l.debitCents, // swapped
+      debitCents: l.creditCents, 
+      creditCents: l.debitCents, 
     })),
   });
 
